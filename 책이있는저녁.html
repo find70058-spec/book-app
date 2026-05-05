@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>책이있는 저녁</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;600&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #4C3F91;
+    --purple-light: #7469B3;
+    --purple-pale: #EDEAF8;
+    --teal: #1D9E75;
+    --teal-pale: #E1F5EE;
+    --amber: #BA7517;
+    --amber-pale: #FAEEDA;
+    --text: #1a1a2e;
+    --text-muted: #666680;
+    --text-hint: #aaaacc;
+    --bg: #f8f7ff;
+    --bg-card: #ffffff;
+    --border: rgba(76,63,145,0.12);
+    --border-med: rgba(76,63,145,0.22);
+    --radius: 14px;
+    --radius-sm: 8px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Noto Sans KR', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+  }
+
+  .app {
+    width: 100%;
+    max-width: 420px;
+    min-height: 100vh;
+    background: var(--bg-card);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  /* Header */
+  .header {
+    padding: 52px 20px 16px;
+    background: var(--bg-card);
+    border-bottom: 0.5px solid var(--border);
+  }
+  .header-top { display: flex; justify-content: space-between; align-items: flex-end; }
+  .header-eyebrow { font-size: 11px; color: var(--text-hint); letter-spacing: 0.08em; margin-bottom: 2px; }
+  .header-title { font-family: 'Noto Serif KR', serif; font-size: 22px; font-weight: 600; color: var(--text); }
+  .header-add-btn {
+    background: var(--purple);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 36px; height: 36px;
+    font-size: 22px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: transform 0.15s, background 0.15s;
+  }
+  .header-add-btn:hover { background: var(--purple-light); transform: scale(1.08); }
+
+  /* Content */
+  .content {
+    flex: 1;
+    overflow-y: auto;
+    padding-bottom: 80px;
+  }
+
+  /* Tab bar */
+  .tab-bar {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 420px;
+    background: var(--bg-card);
+    border-top: 0.5px solid var(--border);
+    display: flex;
+    z-index: 100;
+  }
+  .tab {
+    flex: 1;
+    padding: 10px 0 14px;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    cursor: pointer;
+    background: none; border: none;
+  }
+  .tab-icon { font-size: 20px; }
+  .tab-label { font-size: 10px; color: var(--text-hint); font-family: 'Noto Sans KR', sans-serif; }
+  .tab.active .tab-label { color: var(--purple); }
+
+  /* Page */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* Section */
+  .section { padding: 20px 20px 0; }
+  .section-label {
+    font-size: 11px; font-weight: 700; color: var(--text-hint);
+    letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 12px;
+  }
+
+  /* Next meeting card */
+  .next-meeting {
+    background: var(--purple);
+    border-radius: var(--radius);
+    padding: 18px;
+    margin-bottom: 20px;
+    box-shadow: 0 10px 28px rgba(76, 63, 145, 0.38);
+  }
+  .meeting-tag { font-size: 11px; color: rgba(255,255,255,0.6); margin-bottom: 4px; }
+  .meeting-book { font-family: 'Noto Serif KR', serif; font-size: 18px; color: #fff; margin-bottom: 10px; }
+  .meeting-detail { font-size: 12px; color: rgba(255,255,255,0.75); margin-bottom: 3px; }
+  .dday {
+    display: inline-block; margin-top: 10px;
+    background: rgba(255,255,255,0.18); color: #fff;
+    font-size: 12px; font-weight: 700; padding: 4px 12px;
+    border-radius: 20px;
+  }
+  .no-meeting {
+    background: var(--purple-pale); border-radius: var(--radius);
+    padding: 20px; text-align: center; margin-bottom: 20px;
+    color: var(--purple-light); font-size: 14px;
+  }
+
+  /* Book card */
+  .book-card {
+    display: flex; gap: 14px; align-items: center;
+    background: var(--bg-card);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px; margin-bottom: 10px;
+    box-shadow: 0 2px 12px rgba(76, 63, 145, 0.07);
+  }
+  .book-cover {
+    width: 44px; height: 60px; border-radius: 5px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; flex-shrink: 0;
+  }
+  .book-info { flex: 1; min-width: 0; }
+  .book-title { font-size: 15px; font-weight: 500; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .book-author { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
+  .stars { display: flex; gap: 3px; align-items: center; }
+  .star { width: 11px; height: 11px; border-radius: 50%; }
+  .star.on { background: var(--amber); }
+  .star.off { background: #e5e5f0; }
+  .review-count { font-size: 11px; color: var(--text-hint); margin-left: 4px; }
+
+  /* Review board */
+  .review-card {
+    background: var(--bg-card); border: 0.5px solid var(--border);
+    border-radius: var(--radius); padding: 16px; margin-bottom: 10px;
+  }
+  .review-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+  .review-book-title { font-size: 13px; font-weight: 700; color: var(--purple); }
+  .review-stars { display: flex; gap: 2px; }
+  .review-star { width: 10px; height: 10px; border-radius: 50%; }
+  .review-star.on { background: var(--amber); }
+  .review-star.off { background: #e5e5f0; }
+  .review-author { font-size: 11px; color: var(--text-hint); margin-bottom: 6px; }
+  .review-text { font-size: 13px; color: var(--text-muted); line-height: 1.65; font-family: 'Noto Serif KR', serif; }
+  .review-date { font-size: 11px; color: var(--text-hint); text-align: right; }
+  .review-footer-row {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 10px; margin-top: 10px; flex-wrap: wrap;
+  }
+
+  /* Schedule card */
+  .schedule-card {
+    border-radius: var(--radius); padding: 16px; margin-bottom: 10px;
+  }
+  .schedule-card.upcoming { background: var(--purple-pale); border: 0.5px solid rgba(76,63,145,0.2); }
+  .schedule-card.past { background: var(--bg-card); border: 0.5px solid var(--border); }
+  .schedule-tag { font-size: 11px; color: var(--purple-light); margin-bottom: 4px; }
+  .schedule-tag.past { color: var(--text-hint); }
+  .schedule-book { font-size: 15px; font-weight: 500; color: var(--text); margin-bottom: 6px; }
+  .schedule-meta { font-size: 12px; color: var(--text-muted); }
+  .schedule-card-actions {
+    display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;
+  }
+
+  /* Card actions */
+  .card-actions {
+    display: flex; gap: 8px; align-items: center; flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+  .book-card { align-items: flex-start; }
+  .card-action-btn {
+    font-size: 12px; padding: 5px 12px;
+    border: 0.5px solid var(--border-med); border-radius: var(--radius-sm);
+    background: var(--bg); color: var(--purple); cursor: pointer;
+    font-family: inherit; white-space: nowrap;
+    transition: background 0.12s, border-color 0.12s;
+  }
+  .card-action-btn:hover { background: var(--purple-pale); border-color: rgba(76,63,145,0.35); }
+  .card-action-btn.danger {
+    color: #b33; border-color: rgba(180,51,51,0.35);
+  }
+  .card-action-btn.danger:hover { background: #fff5f5; }
+
+  /* Modal */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; z-index: 200;
+    background: rgba(20,18,40,0.5);
+    align-items: flex-end; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--bg-card);
+    border-radius: 20px 20px 0 0;
+    width: 100%; max-width: 420px;
+    padding: 24px 20px 40px;
+    max-height: 90vh; overflow-y: auto;
+  }
+  .modal-handle {
+    width: 36px; height: 4px; border-radius: 2px;
+    background: var(--border-med); margin: 0 auto 20px;
+  }
+  .modal-title { font-family: 'Noto Serif KR', serif; font-size: 18px; margin-bottom: 20px; }
+  .form-group { margin-bottom: 16px; }
+  .form-label { font-size: 12px; font-weight: 700; color: var(--text-hint); letter-spacing: 0.05em; margin-bottom: 6px; display: block; }
+  .form-input, .form-textarea, .form-select {
+    width: 100%; padding: 12px 14px;
+    border: 0.5px solid var(--border-med); border-radius: var(--radius-sm);
+    font-size: 14px; font-family: 'Noto Sans KR', sans-serif;
+    color: var(--text); background: var(--bg);
+    outline: none; transition: border 0.15s;
+  }
+  .form-input:focus, .form-textarea:focus, .form-select:focus { border-color: var(--purple); }
+  .form-textarea { resize: none; height: 80px; }
+  .star-picker { display: flex; gap: 8px; }
+  .star-btn {
+    width: 32px; height: 32px; border-radius: 50%;
+    border: 0.5px solid var(--border-med);
+    background: var(--bg); cursor: pointer; font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.1s;
+  }
+  .star-btn.selected { background: var(--amber-pale); border-color: var(--amber); }
+  .form-btn {
+    width: 100%; padding: 14px;
+    background: var(--purple); color: white;
+    border: none; border-radius: var(--radius-sm);
+    font-size: 15px; font-weight: 700; cursor: pointer;
+    font-family: 'Noto Sans KR', sans-serif;
+    transition: background 0.15s;
+    margin-top: 8px;
+  }
+  .form-btn:hover { background: var(--purple-light); }
+
+  /* Empty state */
+  .empty {
+    text-align: center; padding: 40px 20px;
+    color: var(--text-hint); font-size: 14px; line-height: 1.8;
+  }
+
+  /* Emoji palette */
+  .emoji-palette { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .emoji-opt {
+    width: 40px; height: 40px; border-radius: 8px;
+    border: 0.5px solid var(--border-med); background: var(--bg);
+    font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: all 0.1s;
+  }
+  .emoji-opt.selected { border-color: var(--purple); background: var(--purple-pale); }
+
+  /* color palette */
+  .color-palette { display: flex; gap: 8px; margin-top: 8px; }
+  .color-opt {
+    width: 28px; height: 28px; border-radius: 50%; cursor: pointer;
+    border: 2px solid transparent; transition: all 0.1s;
+  }
+  .color-opt.selected { border-color: var(--text); transform: scale(1.15); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-eyebrow">독서모임</div>
+    <div class="header-top">
+      <div class="header-title">책이있는 저녁</div>
+      <button class="header-add-btn" id="main-add-btn" onclick="openAddModal()">＋</button>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <div class="content" id="content">
+
+    <!-- HOME -->
+    <div class="page active" id="page-home">
+      <div class="section" style="padding-top:20px;">
+        <div class="section-label">다음 모임</div>
+        <div id="next-meeting-area"></div>
+
+        <div class="section-label">최근 읽은 책</div>
+        <div id="home-books-area"></div>
+      </div>
+    </div>
+
+    <!-- BOOKS -->
+    <div class="page" id="page-books">
+      <div class="section" style="padding-top:20px;">
+        <div class="section-label">우리가 읽은 책</div>
+        <div id="books-area"></div>
+      </div>
+    </div>
+
+    <!-- REVIEWS -->
+    <div class="page" id="page-reviews">
+      <div class="section" style="padding-top:20px;">
+        <div class="section-label">한줄평 게시판</div>
+        <div id="reviews-area"></div>
+      </div>
+    </div>
+
+    <!-- SCHEDULE -->
+    <div class="page" id="page-schedule">
+      <div class="section" style="padding-top:20px;">
+        <div class="section-label">모임 일정</div>
+        <div id="schedule-area"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Tab bar -->
+  <div class="tab-bar">
+    <button class="tab active" id="tab-home" onclick="showPage('home')">
+      <span class="tab-icon">🏠</span>
+      <span class="tab-label">홈</span>
+    </button>
+    <button class="tab" id="tab-books" onclick="showPage('books')">
+      <span class="tab-icon">📚</span>
+      <span class="tab-label">책 목록</span>
+    </button>
+    <button class="tab" id="tab-reviews" onclick="showPage('reviews')">
+      <span class="tab-icon">✍️</span>
+      <span class="tab-label">한줄평</span>
+    </button>
+    <button class="tab" id="tab-schedule" onclick="showPage('schedule')">
+      <span class="tab-icon">📅</span>
+      <span class="tab-label">일정</span>
+    </button>
+  </div>
+</div>
+
+<!-- ===== MODALS ===== -->
+
+<!-- Select what to add -->
+<div class="modal-overlay" id="modal-select">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">무엇을 추가할까요?</div>
+    <div style="display:flex; flex-direction:column; gap:10px;">
+      <button class="form-btn" style="background:var(--purple);" onclick="openNewBookModal()">📚 책 추가</button>
+      <button class="form-btn" style="background:var(--teal);" onclick="openNewReviewModal()">✍️ 한줄평 쓰기</button>
+      <button class="form-btn" style="background:var(--purple); opacity:0.82;" onclick="openNewScheduleModal()">📅 모임 일정 추가</button>
+      <button class="form-btn" style="background:var(--text-hint); margin-top:4px;" onclick="closeAllModals()">취소</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Book Modal -->
+<div class="modal-overlay" id="modal-book">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="modal-book-title-text">책 추가</div>
+    <div class="form-group">
+      <label class="form-label">책 제목 *</label>
+      <input class="form-input" id="book-title" placeholder="예) 파친코">
+    </div>
+    <div class="form-group">
+      <label class="form-label">저자 *</label>
+      <input class="form-input" id="book-author" placeholder="예) 이민진">
+    </div>
+    <div class="form-group">
+      <label class="form-label">읽은 날짜</label>
+      <input class="form-input" id="book-date" type="month">
+    </div>
+    <div class="form-group">
+      <label class="form-label">아이콘 선택</label>
+      <div class="emoji-palette" id="emoji-palette">
+        <div class="emoji-opt selected" data-emoji="📖" onclick="selectEmoji(this)">📖</div>
+        <div class="emoji-opt" data-emoji="📚" onclick="selectEmoji(this)">📚</div>
+        <div class="emoji-opt" data-emoji="📕" onclick="selectEmoji(this)">📕</div>
+        <div class="emoji-opt" data-emoji="📗" onclick="selectEmoji(this)">📗</div>
+        <div class="emoji-opt" data-emoji="📘" onclick="selectEmoji(this)">📘</div>
+        <div class="emoji-opt" data-emoji="📙" onclick="selectEmoji(this)">📙</div>
+        <div class="emoji-opt" data-emoji="🔖" onclick="selectEmoji(this)">🔖</div>
+        <div class="emoji-opt" data-emoji="✨" onclick="selectEmoji(this)">✨</div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">표지 색상</label>
+      <div class="color-palette" id="color-palette">
+        <div class="color-opt selected" data-color="#EEEDFE" style="background:#EEEDFE;" onclick="selectColor(this)"></div>
+        <div class="color-opt" data-color="#E1F5EE" style="background:#E1F5EE;" onclick="selectColor(this)"></div>
+        <div class="color-opt" data-color="#FAEEDA" style="background:#FAEEDA;" onclick="selectColor(this)"></div>
+        <div class="color-opt" data-color="#FAECE7" style="background:#FAECE7;" onclick="selectColor(this)"></div>
+        <div class="color-opt" data-color="#EAF3DE" style="background:#EAF3DE;" onclick="selectColor(this)"></div>
+        <div class="color-opt" data-color="#FBEAF0" style="background:#FBEAF0;" onclick="selectColor(this)"></div>
+      </div>
+    </div>
+    <button class="form-btn" id="book-submit-btn" onclick="saveBook()">추가하기</button>
+    <button class="form-btn" style="background:transparent; color:var(--text-hint); margin-top:4px;" onclick="closeAllModals()">취소</button>
+  </div>
+</div>
+
+<!-- Add Review Modal -->
+<div class="modal-overlay" id="modal-review">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="modal-review-title-text">한줄평 쓰기</div>
+    <div class="form-group">
+      <label class="form-label">책 선택 *</label>
+      <select class="form-select" id="review-book">
+        <option value="">책을 선택하세요</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">이름 *</label>
+      <input class="form-input" id="review-author" placeholder="예) 김지은">
+    </div>
+    <div class="form-group">
+      <label class="form-label">별점</label>
+      <div class="star-picker" id="star-picker">
+        <button class="star-btn" data-val="1" onclick="selectStar(1)">★</button>
+        <button class="star-btn" data-val="2" onclick="selectStar(2)">★</button>
+        <button class="star-btn" data-val="3" onclick="selectStar(3)">★</button>
+        <button class="star-btn" data-val="4" onclick="selectStar(4)">★</button>
+        <button class="star-btn" data-val="5" onclick="selectStar(5)">★</button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">한줄평 *</label>
+      <textarea class="form-textarea" id="review-text" placeholder="이 책을 한 문장으로 표현해보세요"></textarea>
+    </div>
+    <button class="form-btn" id="review-submit-btn" onclick="saveReview()">등록하기</button>
+    <button class="form-btn" style="background:transparent; color:var(--text-hint); margin-top:4px;" onclick="closeAllModals()">취소</button>
+  </div>
+</div>
+
+<!-- Add Schedule Modal -->
+<div class="modal-overlay" id="modal-schedule">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="modal-schedule-title-text">모임 일정 추가</div>
+    <div class="form-group">
+      <label class="form-label">읽을 책 제목 *</label>
+      <input class="form-input" id="sched-book" placeholder="예) 파친코">
+    </div>
+    <div class="form-group">
+      <label class="form-label">모임 날짜 *</label>
+      <input class="form-input" id="sched-date" type="date">
+    </div>
+    <div class="form-group">
+      <label class="form-label">시간</label>
+      <input class="form-input" id="sched-time" type="time" value="19:00">
+    </div>
+    <div class="form-group">
+      <label class="form-label">장소</label>
+      <input class="form-input" id="sched-place" placeholder="예) 연남동 카페 책방">
+    </div>
+    <button class="form-btn" id="schedule-submit-btn" onclick="saveSchedule()">추가하기</button>
+    <button class="form-btn" style="background:transparent; color:var(--text-hint); margin-top:4px;" onclick="closeAllModals()">취소</button>
+  </div>
+</div>
+
+<script>
+// ===== localStorage =====
+const STORAGE_BOOKS = 'books';
+const STORAGE_REVIEWS = 'reviews';
+const STORAGE_SCHEDULES = 'schedules';
+const STORAGE_NEXT_ID = 'nextId';
+
+const DEFAULT_BOOKS = [
+  { id:2, title:'더 좋은 삶을 위한 철학', author:'마이클 슈어', date:'2026-05', emoji:'📗', color:'#D9EDF5' },
+  { id:1, title:'이 진리가 당신에게 닿기를', author:'돈 미겔 루이스 외', date:'2026-05', emoji:'📘', color:'#E4F4DC' },
+];
+const DEFAULT_REVIEWS = [
+  { id:1, bookId:1, bookTitle:'이 진리가 당신에게 닿기를', author:'모임원', rating:5, text:'네 가지 약속이 오래 마음에 남았어요.', date:'2026-05-04' },
+];
+const DEFAULT_SCHEDULES = [
+  { id:1, book:'더 좋은 삶을 위한 철학', date:'2026-05-31', time:'19:00', place:"카페 '동네'" },
+];
+const DEFAULT_NEXT_ID = 10;
+
+function loadFromStorage(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw === null || raw === '') return fallback;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : fallback;
+  } catch (e) {
+    return fallback;
+  }
+}
+
+function loadNextId() {
+  try {
+    const raw = localStorage.getItem(STORAGE_NEXT_ID);
+    if (raw === null || raw === '') return DEFAULT_NEXT_ID;
+    const n = parseInt(raw, 10);
+    return isNaN(n) ? DEFAULT_NEXT_ID : n;
+  } catch (e) {
+    return DEFAULT_NEXT_ID;
+  }
+}
+
+function persistData() {
+  try {
+    localStorage.setItem(STORAGE_BOOKS, JSON.stringify(state.books));
+    localStorage.setItem(STORAGE_REVIEWS, JSON.stringify(state.reviews));
+    localStorage.setItem(STORAGE_SCHEDULES, JSON.stringify(state.schedules));
+    localStorage.setItem(STORAGE_NEXT_ID, String(state.nextId));
+  } catch (e) {}
+}
+
+// ===== STATE =====
+let state = {
+  books: loadFromStorage(STORAGE_BOOKS, DEFAULT_BOOKS),
+  reviews: loadFromStorage(STORAGE_REVIEWS, DEFAULT_REVIEWS),
+  schedules: loadFromStorage(STORAGE_SCHEDULES, DEFAULT_SCHEDULES),
+  selectedEmoji: '📖',
+  selectedColor: '#EEEDFE',
+  selectedStar: 0,
+  nextId: loadNextId(),
+};
+
+let editingBookId = null;
+let editingReviewId = null;
+let editingScheduleId = null;
+
+// ===== HELPERS =====
+function escapeHtml(str) {
+  if (str === undefined || str === null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function getNextId() { return state.nextId++; }
+
+function starsHTML(rating, size='11px') {
+  let h = '<div class="stars">';
+  for(let i=1;i<=5;i++) h += `<div class="star ${i<=rating?'on':'off'}" style="width:${size};height:${size};border-radius:50%;"></div>`;
+  return h + '</div>';
+}
+
+function reviewStarsHTML(rating) {
+  let h = '<div class="review-stars">';
+  for(let i=1;i<=5;i++) h += `<div class="review-star ${i<=rating?'on':'off'}"></div>`;
+  return h + '</div>';
+}
+
+function avgRating(bookTitle) {
+  const rs = state.reviews.filter(r => r.bookTitle === bookTitle);
+  if(!rs.length) return 0;
+  return Math.round(rs.reduce((a,r)=>a+r.rating,0)/rs.length);
+}
+
+function reviewCount(bookTitle) {
+  return state.reviews.filter(r => r.bookTitle === bookTitle).length;
+}
+
+function formatDate(dateStr) {
+  const d = new Date(dateStr);
+  const days = ['일','월','화','수','목','금','토'];
+  return `${d.getMonth()+1}월 ${d.getDate()}일 (${days[d.getDay()]})`;
+}
+
+function formatMonth(monthStr) {
+  if(!monthStr) return '';
+  const [y,m] = monthStr.split('-');
+  return `${y}년 ${parseInt(m)}월`;
+}
+
+function calcDday(dateStr) {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const target = new Date(dateStr); target.setHours(0,0,0,0);
+  const diff = Math.round((target - today)/(1000*60*60*24));
+  if(diff === 0) return 'D-Day';
+  if(diff > 0) return `D-${diff}`;
+  return `D+${Math.abs(diff)}`;
+}
+
+function formatTime(timeStr) {
+  if(!timeStr) return '';
+  const [h,m] = timeStr.split(':');
+  const hour = parseInt(h);
+  const ampm = hour < 12 ? '오전' : '오후';
+  const h12 = hour === 0 ? 12 : hour > 12 ? hour-12 : hour;
+  return `${ampm} ${h12}시${m!=='00'?' '+m+'분':''}`;
+}
+
+// ===== RENDER =====
+function render() {
+  renderHome();
+  renderBooks();
+  renderReviews();
+  renderSchedule();
+}
+
+function renderHome() {
+  // Next meeting
+  const now = new Date(); now.setHours(0,0,0,0);
+  const upcoming = state.schedules
+    .filter(s => new Date(s.date) >= now)
+    .sort((a,b) => new Date(a.date)-new Date(b.date));
+  const el = document.getElementById('next-meeting-area');
+  if(upcoming.length) {
+    const s = upcoming[0];
+    el.innerHTML = `
+      <div class="next-meeting">
+        <div class="meeting-tag">다음 모임</div>
+        <div class="meeting-book">${escapeHtml(s.book)}</div>
+        <div class="meeting-detail">📅 ${formatDate(s.date)} ${formatTime(s.time)}</div>
+        ${s.place ? `<div class="meeting-detail">📍 ${escapeHtml(s.place)}</div>` : ''}
+        <div class="dday">${calcDday(s.date)}</div>
+      </div>`;
+  } else {
+    el.innerHTML = `<div class="no-meeting">아직 예정된 모임이 없어요<br><span style="font-size:12px;">일정 탭에서 추가해보세요</span></div>`;
+  }
+
+  // Recent books
+  const bel = document.getElementById('home-books-area');
+  const recent = [...state.books].slice(-3).reverse();
+  if(recent.length) {
+    bel.innerHTML = recent.map(b => bookCardHTML(b, true)).join('');
+  } else {
+    bel.innerHTML = `<div class="empty">아직 읽은 책이 없어요</div>`;
+  }
+}
+
+function bookCardHTML(b, editable) {
+  const rating = avgRating(b.title);
+  const count = reviewCount(b.title);
+  const t = escapeHtml(b.title);
+  const a = escapeHtml(b.author);
+  const actions = editable ? `
+    <div class="card-actions">
+      <button type="button" class="card-action-btn" onclick="openBookEdit(${b.id})">수정</button>
+      <button type="button" class="card-action-btn danger" onclick="deleteBook(${b.id})">삭제</button>
+    </div>` : '';
+  return `<div class="book-card">
+    <div class="book-cover" style="background:${escapeHtml(b.color)}">${b.emoji}</div>
+    <div class="book-info">
+      <div class="book-title">${t}</div>
+      <div class="book-author">${a}${b.date ? ' · '+formatMonth(b.date) : ''}</div>
+      <div style="display:flex;align-items:center;gap:4px;">
+        ${starsHTML(rating)}
+        <span class="review-count">한줄평 ${count}개</span>
+      </div>
+    </div>
+    ${actions}
+  </div>`;
+}
+
+function renderBooks() {
+  const el = document.getElementById('books-area');
+  if(!state.books.length) {
+    el.innerHTML = `<div class="empty">📚<br>아직 읽은 책이 없어요<br>+ 버튼으로 추가해보세요</div>`;
+    return;
+  }
+  el.innerHTML = [...state.books].reverse().map(b => bookCardHTML(b, true)).join('');
+}
+
+function renderReviews() {
+  const el = document.getElementById('reviews-area');
+  if(!state.reviews.length) {
+    el.innerHTML = `<div class="empty">✍️<br>아직 한줄평이 없어요<br>첫 번째 한줄평을 남겨보세요</div>`;
+    return;
+  }
+  const sorted = [...state.reviews].reverse();
+  el.innerHTML = sorted.map(r => `
+    <div class="review-card">
+      <div class="review-header">
+        <span class="review-book-title">『${escapeHtml(r.bookTitle)}』</span>
+        ${reviewStarsHTML(r.rating)}
+      </div>
+      <div class="review-author">${escapeHtml(r.author)}</div>
+      <div class="review-text">"${escapeHtml(r.text)}"</div>
+      <div class="review-footer-row">
+        <div class="card-actions" style="margin-top:0;">
+          <button type="button" class="card-action-btn" onclick="openReviewEdit(${r.id})">수정</button>
+          <button type="button" class="card-action-btn danger" onclick="deleteReview(${r.id})">삭제</button>
+        </div>
+        <div class="review-date">${escapeHtml(r.date)}</div>
+      </div>
+    </div>`).join('');
+}
+
+function renderSchedule() {
+  const el = document.getElementById('schedule-area');
+  if(!state.schedules.length) {
+    el.innerHTML = `<div class="empty">📅<br>등록된 일정이 없어요</div>`;
+    return;
+  }
+  const now = new Date(); now.setHours(0,0,0,0);
+  const sorted = [...state.schedules].sort((a,b) => new Date(b.date)-new Date(a.date));
+  el.innerHTML = sorted.map(s => {
+    const isUpcoming = new Date(s.date) >= now;
+    const placePart = s.place ? ' · '+escapeHtml(s.place) : '';
+    return `<div class="schedule-card ${isUpcoming?'upcoming':'past'}">
+      <div class="schedule-tag ${isUpcoming?'':'past'}">${isUpcoming?'예정된 모임':'지난 모임'}</div>
+      <div class="schedule-book">${escapeHtml(s.book)}</div>
+      <div class="schedule-meta">${formatDate(s.date)} ${formatTime(s.time)}${placePart}</div>
+      ${isUpcoming ? `<div style="margin-top:8px;"><span style="background:var(--purple);color:#fff;font-size:11px;padding:3px 10px;border-radius:20px;">${calcDday(s.date)}</span></div>` : ''}
+      <div class="schedule-card-actions">
+        <button type="button" class="card-action-btn" onclick="openScheduleEdit(${s.id})">수정</button>
+        <button type="button" class="card-action-btn danger" onclick="deleteSchedule(${s.id})">삭제</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ===== TABS =====
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  document.getElementById('tab-'+name).classList.add('active');
+}
+
+// ===== MODALS =====
+function openAddModal() { openModal('modal-select'); }
+
+function openModal(id) {
+  closeAllModals();
+  document.getElementById(id).classList.add('open');
+}
+
+function resetBookForm() {
+  editingBookId = null;
+  document.getElementById('book-title').value = '';
+  document.getElementById('book-author').value = '';
+  document.getElementById('book-date').value = '';
+  state.selectedEmoji = '📖';
+  state.selectedColor = '#EEEDFE';
+  document.querySelectorAll('.emoji-opt').forEach(e => {
+    e.classList.toggle('selected', e.dataset.emoji === '📖');
+  });
+  document.querySelectorAll('.color-opt').forEach(e => {
+    e.classList.toggle('selected', e.dataset.color === '#EEEDFE');
+  });
+  document.getElementById('modal-book-title-text').textContent = '책 추가';
+  document.getElementById('book-submit-btn').textContent = '추가하기';
+}
+
+function openNewBookModal() {
+  resetBookForm();
+  closeAllModals();
+  document.getElementById('modal-book').classList.add('open');
+}
+
+function openBookEdit(id) {
+  const b = state.books.find(x => x.id === id);
+  if (!b) return;
+  editingBookId = id;
+  document.getElementById('book-title').value = b.title;
+  document.getElementById('book-author').value = b.author;
+  document.getElementById('book-date').value = b.date || '';
+  state.selectedEmoji = b.emoji;
+  state.selectedColor = b.color;
+  document.querySelectorAll('.emoji-opt').forEach(e => {
+    e.classList.toggle('selected', e.dataset.emoji === b.emoji);
+  });
+  document.querySelectorAll('.color-opt').forEach(e => {
+    e.classList.toggle('selected', e.dataset.color === b.color);
+  });
+  document.getElementById('modal-book-title-text').textContent = '책 수정';
+  document.getElementById('book-submit-btn').textContent = '저장하기';
+  closeAllModals();
+  document.getElementById('modal-book').classList.add('open');
+}
+
+function deleteBook(id) {
+  if (!confirm('이 책을 삭제하면 이 책에 달린 한줄평도 함께 삭제됩니다. 계속할까요?')) return;
+  state.books = state.books.filter(b => b.id !== id);
+  state.reviews = state.reviews.filter(r => r.bookId !== id);
+  persistData();
+  render();
+}
+
+function resetReviewForm() {
+  editingReviewId = null;
+  document.getElementById('review-book').value = '';
+  document.getElementById('review-author').value = '';
+  document.getElementById('review-text').value = '';
+  state.selectedStar = 0;
+  document.querySelectorAll('.star-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('modal-review-title-text').textContent = '한줄평 쓰기';
+  document.getElementById('review-submit-btn').textContent = '등록하기';
+}
+
+function openNewReviewModal() {
+  resetReviewForm();
+  closeAllModals();
+  populateBookSelect();
+  document.getElementById('modal-review').classList.add('open');
+}
+
+function openReviewEdit(id) {
+  const r = state.reviews.find(x => x.id === id);
+  if (!r) return;
+  editingReviewId = id;
+  populateBookSelect();
+  document.getElementById('review-book').value = String(r.bookId);
+  document.getElementById('review-author').value = r.author;
+  document.getElementById('review-text').value = r.text;
+  selectStar(r.rating);
+  document.getElementById('modal-review-title-text').textContent = '한줄평 수정';
+  document.getElementById('review-submit-btn').textContent = '저장하기';
+  closeAllModals();
+  document.getElementById('modal-review').classList.add('open');
+  showPage('reviews');
+}
+
+function deleteReview(id) {
+  if (!confirm('이 한줄평을 삭제할까요?')) return;
+  state.reviews = state.reviews.filter(r => r.id !== id);
+  persistData();
+  render();
+}
+
+function resetScheduleForm() {
+  editingScheduleId = null;
+  document.getElementById('sched-book').value = '';
+  document.getElementById('sched-date').value = '';
+  document.getElementById('sched-time').value = '19:00';
+  document.getElementById('sched-place').value = '';
+  document.getElementById('modal-schedule-title-text').textContent = '모임 일정 추가';
+  document.getElementById('schedule-submit-btn').textContent = '추가하기';
+}
+
+function openNewScheduleModal() {
+  resetScheduleForm();
+  closeAllModals();
+  document.getElementById('modal-schedule').classList.add('open');
+}
+
+function openScheduleEdit(id) {
+  const s = state.schedules.find(x => x.id === id);
+  if (!s) return;
+  editingScheduleId = id;
+  document.getElementById('sched-book').value = s.book;
+  document.getElementById('sched-date').value = s.date;
+  document.getElementById('sched-time').value = s.time || '19:00';
+  document.getElementById('sched-place').value = s.place || '';
+  document.getElementById('modal-schedule-title-text').textContent = '일정 수정';
+  document.getElementById('schedule-submit-btn').textContent = '저장하기';
+  closeAllModals();
+  document.getElementById('modal-schedule').classList.add('open');
+  showPage('schedule');
+}
+
+function deleteSchedule(id) {
+  if (!confirm('이 일정을 삭제할까요?')) return;
+  state.schedules = state.schedules.filter(s => s.id !== id);
+  persistData();
+  render();
+}
+
+function closeAllModals() {
+  document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('open'));
+}
+
+// Close on overlay click
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', e => { if(e.target === overlay) closeAllModals(); });
+});
+
+function populateBookSelect() {
+  const sel = document.getElementById('review-book');
+  sel.innerHTML = '<option value="">책을 선택하세요</option>';
+  state.books.forEach(b => {
+    sel.innerHTML += `<option value="${b.id}">${b.title}</option>`;
+  });
+}
+
+// ===== EMOJI / COLOR / STAR =====
+function selectEmoji(el) {
+  document.querySelectorAll('.emoji-opt').forEach(e => e.classList.remove('selected'));
+  el.classList.add('selected');
+  state.selectedEmoji = el.dataset.emoji;
+}
+
+function selectColor(el) {
+  document.querySelectorAll('.color-opt').forEach(e => e.classList.remove('selected'));
+  el.classList.add('selected');
+  state.selectedColor = el.dataset.color;
+}
+
+function selectStar(val) {
+  state.selectedStar = val;
+  document.querySelectorAll('.star-btn').forEach(b => {
+    b.classList.toggle('selected', parseInt(b.dataset.val) <= val);
+  });
+}
+
+// ===== SAVE =====
+function saveBook() {
+  const title = document.getElementById('book-title').value.trim();
+  const author = document.getElementById('book-author').value.trim();
+  if(!title || !author) { alert('책 제목과 저자를 입력해주세요'); return; }
+  const date = document.getElementById('book-date').value;
+  if (editingBookId != null) {
+    const b = state.books.find(x => x.id === editingBookId);
+    if (b) {
+      const oldTitle = b.title;
+      b.title = title;
+      b.author = author;
+      b.date = date;
+      b.emoji = state.selectedEmoji;
+      b.color = state.selectedColor;
+      if (oldTitle !== title) {
+        state.reviews.forEach(r => {
+          if (r.bookId === editingBookId) r.bookTitle = title;
+        });
+      }
+    }
+  } else {
+    state.books.push({ id:getNextId(), title, author, date, emoji:state.selectedEmoji, color:state.selectedColor });
+  }
+  resetBookForm();
+  closeAllModals();
+  persistData();
+  render();
+}
+
+function saveReview() {
+  const bookId = parseInt(document.getElementById('review-book').value, 10);
+  const author = document.getElementById('review-author').value.trim();
+  const text = document.getElementById('review-text').value.trim();
+  if(!bookId || !author || !text) { alert('책, 이름, 한줄평을 모두 입력해주세요'); return; }
+  const book = state.books.find(b => b.id === bookId);
+  if (!book) { alert('선택한 책을 찾을 수 없습니다'); return; }
+  const rating = state.selectedStar > 0 ? state.selectedStar : 3;
+  if (editingReviewId != null) {
+    const r = state.reviews.find(x => x.id === editingReviewId);
+    if (r) {
+      r.bookId = bookId;
+      r.bookTitle = book.title;
+      r.author = author;
+      r.rating = rating;
+      r.text = text;
+    }
+  } else {
+    const today = new Date().toISOString().slice(0,10);
+    state.reviews.push({ id:getNextId(), bookId, bookTitle:book.title, author, rating, text, date:today });
+  }
+  resetReviewForm();
+  closeAllModals();
+  persistData();
+  render();
+  showPage('reviews');
+}
+
+function saveSchedule() {
+  const book = document.getElementById('sched-book').value.trim();
+  const date = document.getElementById('sched-date').value;
+  if(!book || !date) { alert('책 제목과 날짜를 입력해주세요'); return; }
+  const time = document.getElementById('sched-time').value;
+  const place = document.getElementById('sched-place').value.trim();
+  if (editingScheduleId != null) {
+    const s = state.schedules.find(x => x.id === editingScheduleId);
+    if (s) {
+      s.book = book;
+      s.date = date;
+      s.time = time;
+      s.place = place;
+    }
+  } else {
+    state.schedules.push({ id:getNextId(), book, date, time, place });
+  }
+  resetScheduleForm();
+  closeAllModals();
+  persistData();
+  render();
+  showPage('schedule');
+}
+
+// ===== INIT =====
+render();
+</script>
+</body>
+</html>
