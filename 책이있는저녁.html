@@ -281,6 +281,85 @@
     border: 2px solid transparent; transition: all 0.1s;
   }
   .color-opt.selected { border-color: var(--text); transform: scale(1.15); }
+
+  /* Auth (Google) */
+  .auth-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 0.5px solid var(--border);
+  }
+  .auth-profile {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    flex: 1;
+  }
+  .auth-photo {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+    border: 0.5px solid var(--border-med);
+  }
+  .auth-display-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .auth-buttons {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .auth-btn {
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 8px 14px;
+    border-radius: var(--radius-sm);
+    border: none;
+    cursor: pointer;
+    background: var(--purple);
+    color: #fff;
+    transition: background 0.15s, opacity 0.15s;
+  }
+  .auth-btn:hover { background: var(--purple-light); }
+  .auth-btn-outline {
+    background: transparent;
+    color: var(--purple);
+    border: 0.5px solid var(--border-med);
+  }
+  .auth-btn-outline:hover { background: var(--purple-pale); }
+  .auth-btn-small {
+    font-size: 11px;
+    padding: 6px 10px;
+  }
+  .header-add-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none;
+  }
+  .review-author-display {
+    padding: 12px 14px;
+    border: 0.5px solid var(--border-med);
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
 </style>
 </head>
 <body>
@@ -291,7 +370,18 @@
     <div class="header-eyebrow">독서모임</div>
     <div class="header-top">
       <div class="header-title">책이있는 저녁</div>
-      <button class="header-add-btn" id="main-add-btn" onclick="openAddModal()">＋</button>
+      <button class="header-add-btn" id="main-add-btn" onclick="openAddModal()" disabled>＋</button>
+    </div>
+    <div class="auth-row" id="auth-row">
+      <div class="auth-profile" id="auth-profile" hidden>
+        <img id="auth-photo" class="auth-photo" alt="" width="28" height="28" decoding="async" />
+        <span id="auth-display-name" class="auth-display-name"></span>
+      </div>
+      <div class="auth-buttons">
+        <button type="button" class="auth-btn" id="btn-google-login">구글 로그인</button>
+        <button type="button" class="auth-btn auth-btn-outline auth-btn-small" id="btn-edit-nickname" hidden>닉네임</button>
+        <button type="button" class="auth-btn auth-btn-outline" id="btn-logout" hidden>로그아웃</button>
+      </div>
     </div>
     <div id="sync-status" style="font-size:11px;color:var(--text-hint);margin-top:10px;min-height:14px;"></div>
   </div>
@@ -431,8 +521,8 @@
       </select>
     </div>
     <div class="form-group">
-      <label class="form-label">이름 *</label>
-      <input class="form-input" id="review-author" placeholder="예) 김지은">
+      <label class="form-label">작성자</label>
+      <div class="review-author-display" id="review-author-display">로그인 후 표시됩니다</div>
     </div>
     <div class="form-group">
       <label class="form-label">별점</label>
@@ -479,11 +569,28 @@
   </div>
 </div>
 
+<!-- 닉네임 설정 -->
+<div class="modal-overlay" id="modal-nickname">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">닉네임 설정</div>
+    <p style="font-size:12px;color:var(--text-muted);line-height:1.5;margin-bottom:14px;">모임에서 보이는 이름입니다. 한줄평 작성 시에도 이 이름이 저장됩니다.</p>
+    <div class="form-group">
+      <label class="form-label">닉네임</label>
+      <input class="form-input" id="nickname-input" maxlength="40" placeholder="예) 독서하는민수" autocomplete="nickname">
+    </div>
+    <button type="button" class="form-btn" id="nickname-save-btn" onclick="saveNickname()">저장하기</button>
+    <button type="button" class="form-btn" style="background:transparent; color:var(--text-hint); margin-top:4px;" onclick="closeAllModals()">취소</button>
+  </div>
+</div>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
 import {
   getAuth,
-  signInAnonymously,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signOut,
   onAuthStateChanged,
 } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
 import {
@@ -500,6 +607,7 @@ import {
   getDocs,
   writeBatch,
   serverTimestamp,
+  setDoc,
 } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -515,10 +623,58 @@ const firebaseConfig = {
 const COL_BOOKS = "bbe_books";
 const COL_REVIEWS = "bbe_reviews";
 const COL_SCHEDULES = "bbe_schedules";
+const COL_PROFILES = "bbe_profiles";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const googleProvider = new GoogleAuthProvider();
+
+/** Firestore onSnapshot 해제용 */
+let firestoreUnsubs = [];
+
+/** 로그인 사용자 프로필 — Firestore `nickname` (없으면 빈 문자열, 로드 전에는 null) */
+let profileNickname = null;
+let profileUnsub = null;
+
+function unsubscribeProfile() {
+  if (profileUnsub) {
+    profileUnsub();
+    profileUnsub = null;
+  }
+  profileNickname = null;
+}
+
+function subscribeProfile(uid) {
+  unsubscribeProfile();
+  profileUnsub = onSnapshot(
+    doc(db, COL_PROFILES, uid),
+    (snap) => {
+      if (!snap.exists()) {
+        profileNickname = "";
+      } else {
+        profileNickname = String(snap.data().nickname ?? "").trim();
+      }
+      updateAuthUI(auth.currentUser);
+      refreshReviewAuthorDisplay();
+    },
+    (err) => {
+      console.error(err);
+      profileNickname = "";
+      updateAuthUI(auth.currentUser);
+      refreshReviewAuthorDisplay();
+    }
+  );
+}
+
+function getGoogleFallbackName(user = auth.currentUser) {
+  if (!user) return "";
+  return (
+    user.displayName ||
+    (user.email ? user.email.split("@")[0] : "") ||
+    "사용자"
+  );
+}
 
 function setSyncStatus(text, isErr) {
   const el = document.getElementById("sync-status");
@@ -577,57 +733,209 @@ function docToSchedule(d) {
   };
 }
 
+function unsubscribeFirestore() {
+  firestoreUnsubs.forEach((u) => u());
+  firestoreUnsubs = [];
+}
+
 function subscribeFirestore() {
-  onSnapshot(
-    query(collection(db, COL_BOOKS), orderBy("createdAt", "desc")),
-    (snap) => {
-      state.books = snap.docs.map(docToBook);
-      render();
-    },
-    (err) => {
-      console.error(err);
-      setSyncStatus("책 목록 동기화 오류 · 규칙/네트워크를 확인하세요", true);
-    }
+  unsubscribeFirestore();
+
+  firestoreUnsubs.push(
+    onSnapshot(
+      query(collection(db, COL_BOOKS), orderBy("createdAt", "desc")),
+      (snap) => {
+        state.books = snap.docs.map(docToBook);
+        render();
+      },
+      (err) => {
+        console.error(err);
+        setSyncStatus("책 목록 동기화 오류 · 규칙/네트워크를 확인하세요", true);
+      }
+    )
   );
 
-  onSnapshot(
-    query(collection(db, COL_REVIEWS), orderBy("createdAt", "desc")),
-    (snap) => {
-      state.reviews = snap.docs.map(docToReview);
-      render();
-    },
-    (err) => {
-      console.error(err);
-      setSyncStatus("한줄평 동기화 오류 · 규칙/네트워크를 확인하세요", true);
-    }
+  firestoreUnsubs.push(
+    onSnapshot(
+      query(collection(db, COL_REVIEWS), orderBy("createdAt", "desc")),
+      (snap) => {
+        state.reviews = snap.docs.map(docToReview);
+        render();
+      },
+      (err) => {
+        console.error(err);
+        setSyncStatus("한줄평 동기화 오류 · 규칙/네트워크를 확인하세요", true);
+      }
+    )
   );
 
-  onSnapshot(
-    query(collection(db, COL_SCHEDULES), orderBy("date", "desc")),
-    (snap) => {
-      state.schedules = snap.docs.map(docToSchedule);
-      render();
-    },
-    (err) => {
-      console.error(err);
-      setSyncStatus("일정 동기화 오류 · 규칙/네트워크를 확인하세요", true);
-    }
+  firestoreUnsubs.push(
+    onSnapshot(
+      query(collection(db, COL_SCHEDULES), orderBy("date", "desc")),
+      (snap) => {
+        state.schedules = snap.docs.map(docToSchedule);
+        render();
+      },
+      (err) => {
+        console.error(err);
+        setSyncStatus("일정 동기화 오류 · 규칙/네트워크를 확인하세요", true);
+      }
+    )
   );
 
   setSyncStatus("실시간 동기화 연결됨");
 }
 
-onAuthStateChanged(auth, async (user) => {
+function updateAuthUI(user) {
+  const loginBtn = document.getElementById("btn-google-login");
+  const logoutBtn = document.getElementById("btn-logout");
+  const nickBtn = document.getElementById("btn-edit-nickname");
+  const profile = document.getElementById("auth-profile");
+  const nameEl = document.getElementById("auth-display-name");
+  const photoEl = document.getElementById("auth-photo");
+  if (!loginBtn || !logoutBtn || !profile || !nameEl || !photoEl) return;
+
   if (!user) {
-    try {
-      await signInAnonymously(auth);
-    } catch (e) {
-      console.error(e);
-      setSyncStatus('Firebase Console → Authentication에서 "익명" 로그인을 켜 주세요.', true);
-    }
+    loginBtn.hidden = false;
+    logoutBtn.hidden = true;
+    if (nickBtn) nickBtn.hidden = true;
+    profile.hidden = true;
+    photoEl.removeAttribute("src");
     return;
   }
+
+  loginBtn.hidden = true;
+  logoutBtn.hidden = false;
+  if (nickBtn) nickBtn.hidden = false;
+  profile.hidden = false;
+
+  nameEl.textContent = getWriterDisplayName();
+
+  if (user.photoURL) {
+    photoEl.src = user.photoURL;
+    photoEl.hidden = false;
+  } else {
+    photoEl.removeAttribute("src");
+    photoEl.hidden = true;
+  }
+}
+
+function setMainInteractionEnabled(on) {
+  const btn = document.getElementById("main-add-btn");
+  if (btn) btn.disabled = !on;
+}
+
+/** 헤더·한줄평 작성자 — Firestore 닉네임 우선, 없으면 구글 표시 이름 */
+function getWriterDisplayName() {
+  if (!auth.currentUser) return "";
+  const custom =
+    profileNickname != null ? String(profileNickname).trim() : "";
+  if (custom) return custom;
+  return getGoogleFallbackName();
+}
+
+function refreshReviewAuthorDisplay() {
+  const el = document.getElementById("review-author-display");
+  if (!el) return;
+  if (!auth.currentUser) {
+    el.textContent = "로그인이 필요합니다";
+    return;
+  }
+  el.textContent = getWriterDisplayName();
+}
+
+document.getElementById("btn-google-login").addEventListener("click", async () => {
+  try {
+    await signInWithPopup(auth, googleProvider);
+  } catch (e) {
+    console.error(e);
+    if (e.code !== "auth/popup-closed-by-user" && e.code !== "auth/cancelled-popup-request") {
+      alert(
+        "로그인에 실패했습니다. Firebase Console → Authentication에서 Google 로그인을 사용 설정했는지 확인하세요."
+      );
+    }
+  }
+});
+
+document.getElementById("btn-logout").addEventListener("click", async () => {
+  try {
+    await signOut(auth);
+  } catch (e) {
+    console.error(e);
+    alert("로그아웃에 실패했습니다.");
+  }
+});
+
+document.getElementById("btn-edit-nickname").addEventListener("click", () => {
+  openNicknameModal();
+});
+
+function openNicknameModal() {
+  if (!auth.currentUser) return;
+  const input = document.getElementById("nickname-input");
+  if (input) {
+    const cur =
+      profileNickname != null && profileNickname !== ""
+        ? profileNickname
+        : getGoogleFallbackName();
+    input.value = cur;
+  }
+  closeAllModals();
+  document.getElementById("modal-nickname").classList.add("open");
+}
+
+async function saveNickname() {
+  const u = auth.currentUser;
+  if (!u) return;
+  const input = document.getElementById("nickname-input");
+  const nick = (input?.value ?? "").trim();
+  if (!nick) {
+    alert("닉네임을 입력해 주세요.");
+    return;
+  }
+  if (nick.length > 40) {
+    alert("닉네임은 40자 이내로 입력해 주세요.");
+    return;
+  }
+  const btn = document.getElementById("nickname-save-btn");
+  if (btn) btn.disabled = true;
+  try {
+    await setDoc(
+      doc(db, COL_PROFILES, u.uid),
+      {
+        nickname: nick,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+    closeAllModals();
+  } catch (e) {
+    console.error(e);
+    alert("저장에 실패했습니다. Firestore 규칙에서 프로필 쓰기가 허용되는지 확인해 주세요.");
+  }
+  if (btn) btn.disabled = false;
+}
+
+onAuthStateChanged(auth, (user) => {
+  updateAuthUI(user);
+
+  if (!user) {
+    unsubscribeProfile();
+    unsubscribeFirestore();
+    state.books = [];
+    state.reviews = [];
+    state.schedules = [];
+    setMainInteractionEnabled(false);
+    setSyncStatus("구글 로그인 후 데이터를 불러옵니다.");
+    render();
+    refreshReviewAuthorDisplay();
+    return;
+  }
+
+  subscribeProfile(user.uid);
+  setMainInteractionEnabled(true);
   subscribeFirestore();
+  refreshReviewAuthorDisplay();
 });
 
 // ===== HELPERS =====
@@ -825,7 +1133,13 @@ function showPage(name) {
 }
 
 // ===== MODALS =====
-function openAddModal() { openModal('modal-select'); }
+function openAddModal() {
+  if (!auth.currentUser) {
+    alert("먼저 구글 로그인을 해주세요.");
+    return;
+  }
+  openModal("modal-select");
+}
 
 function openModal(id) {
   closeAllModals();
@@ -894,12 +1208,12 @@ async function deleteBook(id) {
 function resetReviewForm() {
   editingReviewId = null;
   document.getElementById('review-book').value = '';
-  document.getElementById('review-author').value = '';
   document.getElementById('review-text').value = '';
   state.selectedStar = 0;
   document.querySelectorAll('.star-btn').forEach(b => b.classList.remove('selected'));
   document.getElementById('modal-review-title-text').textContent = '한줄평 쓰기';
   document.getElementById('review-submit-btn').textContent = '등록하기';
+  refreshReviewAuthorDisplay();
 }
 
 function openNewReviewModal() {
@@ -915,8 +1229,8 @@ function openReviewEdit(id) {
   editingReviewId = id;
   populateBookSelect();
   document.getElementById('review-book').value = String(r.bookId);
-  document.getElementById('review-author').value = r.author;
   document.getElementById('review-text').value = r.text;
+  refreshReviewAuthorDisplay();
   selectStar(r.rating);
   document.getElementById('modal-review-title-text').textContent = '한줄평 수정';
   document.getElementById('review-submit-btn').textContent = '저장하기';
@@ -1015,6 +1329,10 @@ function selectStar(val) {
 
 // ===== SAVE (Firestore) =====
 async function saveBook() {
+  if (!auth.currentUser) {
+    alert("로그인이 필요합니다.");
+    return;
+  }
   const title = document.getElementById('book-title').value.trim();
   const author = document.getElementById('book-author').value.trim();
   if(!title || !author) { alert('책 제목과 저자를 입력해주세요'); return; }
@@ -1054,10 +1372,21 @@ async function saveBook() {
 }
 
 async function saveReview() {
+  if (!auth.currentUser) {
+    alert("로그인이 필요합니다.");
+    return;
+  }
+  const author = getWriterDisplayName();
   const bookId = document.getElementById('review-book').value;
-  const author = document.getElementById('review-author').value.trim();
   const text = document.getElementById('review-text').value.trim();
-  if(!bookId || !author || !text) { alert('책, 이름, 한줄평을 모두 입력해주세요'); return; }
+  if (!author) {
+    alert("표시할 이름을 확인할 수 없습니다. 닉네임을 설정하거나 Google 계정 이름을 확인해 주세요.");
+    return;
+  }
+  if (!bookId || !text) {
+    alert('책과 한줄평을 입력해주세요');
+    return;
+  }
   const book = state.books.find(b => String(b.id) === String(bookId));
   if (!book) { alert('선택한 책을 찾을 수 없습니다'); return; }
   const rating = state.selectedStar > 0 ? state.selectedStar : 3;
@@ -1093,6 +1422,10 @@ async function saveReview() {
 }
 
 async function saveSchedule() {
+  if (!auth.currentUser) {
+    alert("로그인이 필요합니다.");
+    return;
+  }
   const book = document.getElementById('sched-book').value.trim();
   const date = document.getElementById('sched-date').value;
   if(!book || !date) { alert('책 제목과 날짜를 입력해주세요'); return; }
@@ -1128,6 +1461,8 @@ Object.assign(window, {
   openNewReviewModal,
   openNewScheduleModal,
   closeAllModals,
+  openNicknameModal,
+  saveNickname,
   openBookEdit,
   deleteBook,
   openReviewEdit,
