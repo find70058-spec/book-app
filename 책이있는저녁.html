@@ -293,6 +293,7 @@
       <div class="header-title">책이있는 저녁</div>
       <button class="header-add-btn" id="main-add-btn" onclick="openAddModal()">＋</button>
     </div>
+    <div id="sync-status" style="font-size:11px;color:var(--text-hint);margin-top:10px;min-height:14px;"></div>
   </div>
 
   <!-- Content -->
@@ -478,70 +479,156 @@
   </div>
 </div>
 
-<script>
-// ===== localStorage =====
-const STORAGE_BOOKS = 'books';
-const STORAGE_REVIEWS = 'reviews';
-const STORAGE_SCHEDULES = 'schedules';
-const STORAGE_NEXT_ID = 'nextId';
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
+import {
+  getAuth,
+  signInAnonymously,
+  onAuthStateChanged,
+} from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
+import {
+  getFirestore,
+  collection,
+  doc,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  onSnapshot,
+  query,
+  orderBy,
+  where,
+  getDocs,
+  writeBatch,
+  serverTimestamp,
+} from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
 
-const DEFAULT_BOOKS = [
-  { id:2, title:'더 좋은 삶을 위한 철학', author:'마이클 슈어', date:'2026-05', emoji:'📗', color:'#D9EDF5' },
-  { id:1, title:'이 진리가 당신에게 닿기를', author:'돈 미겔 루이스 외', date:'2026-05', emoji:'📘', color:'#E4F4DC' },
-];
-const DEFAULT_REVIEWS = [
-  { id:1, bookId:1, bookTitle:'이 진리가 당신에게 닿기를', author:'모임원', rating:5, text:'네 가지 약속이 오래 마음에 남았어요.', date:'2026-05-04' },
-];
-const DEFAULT_SCHEDULES = [
-  { id:1, book:'더 좋은 삶을 위한 철학', date:'2026-05-31', time:'19:00', place:"카페 '동네'" },
-];
-const DEFAULT_NEXT_ID = 10;
+const firebaseConfig = {
+  apiKey: "AIzaSyDHPsB-NNmTtvX86PMeCY8g09PxhXmRRbo",
+  authDomain: "book-80a08.firebaseapp.com",
+  projectId: "book-80a08",
+  storageBucket: "book-80a08.firebasestorage.app",
+  messagingSenderId: "238769215698",
+  appId: "1:238769215698:web:d54e19d3cbc30b6029f50b",
+  measurementId: "G-4F18RGEMN5",
+};
 
-function loadFromStorage(key, fallback) {
-  try {
-    const raw = localStorage.getItem(key);
-    if (raw === null || raw === '') return fallback;
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : fallback;
-  } catch (e) {
-    return fallback;
-  }
+const COL_BOOKS = "bbe_books";
+const COL_REVIEWS = "bbe_reviews";
+const COL_SCHEDULES = "bbe_schedules";
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+function setSyncStatus(text, isErr) {
+  const el = document.getElementById("sync-status");
+  if (!el) return;
+  el.textContent = text;
+  el.style.color = isErr ? "#b33" : "";
 }
 
-function loadNextId() {
-  try {
-    const raw = localStorage.getItem(STORAGE_NEXT_ID);
-    if (raw === null || raw === '') return DEFAULT_NEXT_ID;
-    const n = parseInt(raw, 10);
-    return isNaN(n) ? DEFAULT_NEXT_ID : n;
-  } catch (e) {
-    return DEFAULT_NEXT_ID;
-  }
-}
-
-function persistData() {
-  try {
-    localStorage.setItem(STORAGE_BOOKS, JSON.stringify(state.books));
-    localStorage.setItem(STORAGE_REVIEWS, JSON.stringify(state.reviews));
-    localStorage.setItem(STORAGE_SCHEDULES, JSON.stringify(state.schedules));
-    localStorage.setItem(STORAGE_NEXT_ID, String(state.nextId));
-  } catch (e) {}
-}
-
-// ===== STATE =====
+// ===== STATE (Firestore 스냅샷으로 채움) =====
 let state = {
-  books: loadFromStorage(STORAGE_BOOKS, DEFAULT_BOOKS),
-  reviews: loadFromStorage(STORAGE_REVIEWS, DEFAULT_REVIEWS),
-  schedules: loadFromStorage(STORAGE_SCHEDULES, DEFAULT_SCHEDULES),
+  books: [],
+  reviews: [],
+  schedules: [],
   selectedEmoji: '📖',
   selectedColor: '#EEEDFE',
   selectedStar: 0,
-  nextId: loadNextId(),
 };
 
 let editingBookId = null;
 let editingReviewId = null;
 let editingScheduleId = null;
+
+function docToBook(d) {
+  const x = d.data();
+  return {
+    id: d.id,
+    title: x.title ?? "",
+    author: x.author ?? "",
+    date: x.date ?? "",
+    emoji: x.emoji ?? "📖",
+    color: x.color ?? "#EEEDFE",
+  };
+}
+
+function docToReview(d) {
+  const x = d.data();
+  return {
+    id: d.id,
+    bookId: x.bookId ?? "",
+    bookTitle: x.bookTitle ?? "",
+    author: x.author ?? "",
+    rating: Number(x.rating) || 0,
+    text: x.text ?? "",
+    date: x.date ?? "",
+  };
+}
+
+function docToSchedule(d) {
+  const x = d.data();
+  return {
+    id: d.id,
+    book: x.book ?? "",
+    date: x.date ?? "",
+    time: x.time ?? "",
+    place: x.place ?? "",
+  };
+}
+
+function subscribeFirestore() {
+  onSnapshot(
+    query(collection(db, COL_BOOKS), orderBy("createdAt", "desc")),
+    (snap) => {
+      state.books = snap.docs.map(docToBook);
+      render();
+    },
+    (err) => {
+      console.error(err);
+      setSyncStatus("책 목록 동기화 오류 · 규칙/네트워크를 확인하세요", true);
+    }
+  );
+
+  onSnapshot(
+    query(collection(db, COL_REVIEWS), orderBy("createdAt", "desc")),
+    (snap) => {
+      state.reviews = snap.docs.map(docToReview);
+      render();
+    },
+    (err) => {
+      console.error(err);
+      setSyncStatus("한줄평 동기화 오류 · 규칙/네트워크를 확인하세요", true);
+    }
+  );
+
+  onSnapshot(
+    query(collection(db, COL_SCHEDULES), orderBy("date", "desc")),
+    (snap) => {
+      state.schedules = snap.docs.map(docToSchedule);
+      render();
+    },
+    (err) => {
+      console.error(err);
+      setSyncStatus("일정 동기화 오류 · 규칙/네트워크를 확인하세요", true);
+    }
+  );
+
+  setSyncStatus("실시간 동기화 연결됨");
+}
+
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    try {
+      await signInAnonymously(auth);
+    } catch (e) {
+      console.error(e);
+      setSyncStatus('Firebase Console → Authentication에서 "익명" 로그인을 켜 주세요.', true);
+    }
+    return;
+  }
+  subscribeFirestore();
+});
 
 // ===== HELPERS =====
 function escapeHtml(str) {
@@ -552,8 +639,6 @@ function escapeHtml(str) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 }
-
-function getNextId() { return state.nextId++; }
 
 function starsHTML(rating, size='11px') {
   let h = '<div class="stars">';
@@ -638,7 +723,7 @@ function renderHome() {
 
   // Recent books
   const bel = document.getElementById('home-books-area');
-  const recent = [...state.books].slice(-3).reverse();
+  const recent = state.books.slice(0, 3);
   if(recent.length) {
     bel.innerHTML = recent.map(b => bookCardHTML(b, true)).join('');
   } else {
@@ -651,10 +736,11 @@ function bookCardHTML(b, editable) {
   const count = reviewCount(b.title);
   const t = escapeHtml(b.title);
   const a = escapeHtml(b.author);
+  const bid = JSON.stringify(b.id);
   const actions = editable ? `
     <div class="card-actions">
-      <button type="button" class="card-action-btn" onclick="openBookEdit(${b.id})">수정</button>
-      <button type="button" class="card-action-btn danger" onclick="deleteBook(${b.id})">삭제</button>
+      <button type="button" class="card-action-btn" onclick='openBookEdit(${bid})'>수정</button>
+      <button type="button" class="card-action-btn danger" onclick='deleteBook(${bid})'>삭제</button>
     </div>` : '';
   return `<div class="book-card">
     <div class="book-cover" style="background:${escapeHtml(b.color)}">${b.emoji}</div>
@@ -676,7 +762,7 @@ function renderBooks() {
     el.innerHTML = `<div class="empty">📚<br>아직 읽은 책이 없어요<br>+ 버튼으로 추가해보세요</div>`;
     return;
   }
-  el.innerHTML = [...state.books].reverse().map(b => bookCardHTML(b, true)).join('');
+  el.innerHTML = state.books.map(b => bookCardHTML(b, true)).join('');
 }
 
 function renderReviews() {
@@ -685,8 +771,9 @@ function renderReviews() {
     el.innerHTML = `<div class="empty">✍️<br>아직 한줄평이 없어요<br>첫 번째 한줄평을 남겨보세요</div>`;
     return;
   }
-  const sorted = [...state.reviews].reverse();
-  el.innerHTML = sorted.map(r => `
+  el.innerHTML = state.reviews.map(r => {
+    const rid = JSON.stringify(r.id);
+    return `
     <div class="review-card">
       <div class="review-header">
         <span class="review-book-title">『${escapeHtml(r.bookTitle)}』</span>
@@ -696,12 +783,13 @@ function renderReviews() {
       <div class="review-text">"${escapeHtml(r.text)}"</div>
       <div class="review-footer-row">
         <div class="card-actions" style="margin-top:0;">
-          <button type="button" class="card-action-btn" onclick="openReviewEdit(${r.id})">수정</button>
-          <button type="button" class="card-action-btn danger" onclick="deleteReview(${r.id})">삭제</button>
+          <button type="button" class="card-action-btn" onclick='openReviewEdit(${rid})'>수정</button>
+          <button type="button" class="card-action-btn danger" onclick='deleteReview(${rid})'>삭제</button>
         </div>
         <div class="review-date">${escapeHtml(r.date)}</div>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 function renderSchedule() {
@@ -711,18 +799,18 @@ function renderSchedule() {
     return;
   }
   const now = new Date(); now.setHours(0,0,0,0);
-  const sorted = [...state.schedules].sort((a,b) => new Date(b.date)-new Date(a.date));
-  el.innerHTML = sorted.map(s => {
+  el.innerHTML = state.schedules.map(s => {
     const isUpcoming = new Date(s.date) >= now;
     const placePart = s.place ? ' · '+escapeHtml(s.place) : '';
+    const sid = JSON.stringify(s.id);
     return `<div class="schedule-card ${isUpcoming?'upcoming':'past'}">
       <div class="schedule-tag ${isUpcoming?'':'past'}">${isUpcoming?'예정된 모임':'지난 모임'}</div>
       <div class="schedule-book">${escapeHtml(s.book)}</div>
       <div class="schedule-meta">${formatDate(s.date)} ${formatTime(s.time)}${placePart}</div>
       ${isUpcoming ? `<div style="margin-top:8px;"><span style="background:var(--purple);color:#fff;font-size:11px;padding:3px 10px;border-radius:20px;">${calcDday(s.date)}</span></div>` : ''}
       <div class="schedule-card-actions">
-        <button type="button" class="card-action-btn" onclick="openScheduleEdit(${s.id})">수정</button>
-        <button type="button" class="card-action-btn danger" onclick="deleteSchedule(${s.id})">삭제</button>
+        <button type="button" class="card-action-btn" onclick='openScheduleEdit(${sid})'>수정</button>
+        <button type="button" class="card-action-btn danger" onclick='deleteSchedule(${sid})'>삭제</button>
       </div>
     </div>`;
   }).join('');
@@ -788,12 +876,19 @@ function openBookEdit(id) {
   document.getElementById('modal-book').classList.add('open');
 }
 
-function deleteBook(id) {
+async function deleteBook(id) {
   if (!confirm('이 책을 삭제하면 이 책에 달린 한줄평도 함께 삭제됩니다. 계속할까요?')) return;
-  state.books = state.books.filter(b => b.id !== id);
-  state.reviews = state.reviews.filter(r => r.bookId !== id);
-  persistData();
-  render();
+  try {
+    const batch = writeBatch(db);
+    batch.delete(doc(db, COL_BOOKS, id));
+    const qRev = query(collection(db, COL_REVIEWS), where("bookId", "==", id));
+    const revSnap = await getDocs(qRev);
+    revSnap.forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+  } catch (e) {
+    console.error(e);
+    alert("삭제에 실패했습니다. 네트워크와 Firestore 규칙을 확인해 주세요.");
+  }
 }
 
 function resetReviewForm() {
@@ -830,11 +925,14 @@ function openReviewEdit(id) {
   showPage('reviews');
 }
 
-function deleteReview(id) {
+async function deleteReview(id) {
   if (!confirm('이 한줄평을 삭제할까요?')) return;
-  state.reviews = state.reviews.filter(r => r.id !== id);
-  persistData();
-  render();
+  try {
+    await deleteDoc(doc(db, COL_REVIEWS, id));
+  } catch (e) {
+    console.error(e);
+    alert("삭제에 실패했습니다.");
+  }
 }
 
 function resetScheduleForm() {
@@ -868,11 +966,14 @@ function openScheduleEdit(id) {
   showPage('schedule');
 }
 
-function deleteSchedule(id) {
+async function deleteSchedule(id) {
   if (!confirm('이 일정을 삭제할까요?')) return;
-  state.schedules = state.schedules.filter(s => s.id !== id);
-  persistData();
-  render();
+  try {
+    await deleteDoc(doc(db, COL_SCHEDULES, id));
+  } catch (e) {
+    console.error(e);
+    alert("삭제에 실패했습니다.");
+  }
 }
 
 function closeAllModals() {
@@ -888,7 +989,7 @@ function populateBookSelect() {
   const sel = document.getElementById('review-book');
   sel.innerHTML = '<option value="">책을 선택하세요</option>';
   state.books.forEach(b => {
-    sel.innerHTML += `<option value="${b.id}">${b.title}</option>`;
+    sel.innerHTML += `<option value="${String(b.id)}">${escapeHtml(b.title)}</option>`;
   });
 }
 
@@ -912,87 +1013,134 @@ function selectStar(val) {
   });
 }
 
-// ===== SAVE =====
-function saveBook() {
+// ===== SAVE (Firestore) =====
+async function saveBook() {
   const title = document.getElementById('book-title').value.trim();
   const author = document.getElementById('book-author').value.trim();
   if(!title || !author) { alert('책 제목과 저자를 입력해주세요'); return; }
   const date = document.getElementById('book-date').value;
-  if (editingBookId != null) {
-    const b = state.books.find(x => x.id === editingBookId);
-    if (b) {
-      const oldTitle = b.title;
-      b.title = title;
-      b.author = author;
-      b.date = date;
-      b.emoji = state.selectedEmoji;
-      b.color = state.selectedColor;
-      if (oldTitle !== title) {
-        state.reviews.forEach(r => {
-          if (r.bookId === editingBookId) r.bookTitle = title;
-        });
+  try {
+    if (editingBookId != null) {
+      const ref = doc(db, COL_BOOKS, editingBookId);
+      const b = state.books.find(x => x.id === editingBookId);
+      const oldTitle = b ? b.title : null;
+      await updateDoc(ref, {
+        title, author, date,
+        emoji: state.selectedEmoji,
+        color: state.selectedColor,
+      });
+      if (oldTitle && oldTitle !== title) {
+        const qRev = query(collection(db, COL_REVIEWS), where('bookId', '==', editingBookId));
+        const rs = await getDocs(qRev);
+        const batch = writeBatch(db);
+        rs.forEach(d => batch.update(d.ref, { bookTitle: title }));
+        await batch.commit();
       }
+    } else {
+      await addDoc(collection(db, COL_BOOKS), {
+        title, author, date,
+        emoji: state.selectedEmoji,
+        color: state.selectedColor,
+        createdAt: serverTimestamp(),
+      });
     }
-  } else {
-    state.books.push({ id:getNextId(), title, author, date, emoji:state.selectedEmoji, color:state.selectedColor });
+  } catch (e) {
+    console.error(e);
+    alert('저장에 실패했습니다. Firestore 규칙과 네트워크를 확인해 주세요.');
+    return;
   }
   resetBookForm();
   closeAllModals();
-  persistData();
-  render();
 }
 
-function saveReview() {
-  const bookId = parseInt(document.getElementById('review-book').value, 10);
+async function saveReview() {
+  const bookId = document.getElementById('review-book').value;
   const author = document.getElementById('review-author').value.trim();
   const text = document.getElementById('review-text').value.trim();
   if(!bookId || !author || !text) { alert('책, 이름, 한줄평을 모두 입력해주세요'); return; }
-  const book = state.books.find(b => b.id === bookId);
+  const book = state.books.find(b => String(b.id) === String(bookId));
   if (!book) { alert('선택한 책을 찾을 수 없습니다'); return; }
   const rating = state.selectedStar > 0 ? state.selectedStar : 3;
-  if (editingReviewId != null) {
-    const r = state.reviews.find(x => x.id === editingReviewId);
-    if (r) {
-      r.bookId = bookId;
-      r.bookTitle = book.title;
-      r.author = author;
-      r.rating = rating;
-      r.text = text;
+  try {
+    if (editingReviewId != null) {
+      await updateDoc(doc(db, COL_REVIEWS, editingReviewId), {
+        bookId,
+        bookTitle: book.title,
+        author,
+        rating,
+        text,
+      });
+    } else {
+      const today = new Date().toISOString().slice(0,10);
+      await addDoc(collection(db, COL_REVIEWS), {
+        bookId,
+        bookTitle: book.title,
+        author,
+        rating,
+        text,
+        date: today,
+        createdAt: serverTimestamp(),
+      });
     }
-  } else {
-    const today = new Date().toISOString().slice(0,10);
-    state.reviews.push({ id:getNextId(), bookId, bookTitle:book.title, author, rating, text, date:today });
+  } catch (e) {
+    console.error(e);
+    alert('저장에 실패했습니다.');
+    return;
   }
   resetReviewForm();
   closeAllModals();
-  persistData();
-  render();
   showPage('reviews');
 }
 
-function saveSchedule() {
+async function saveSchedule() {
   const book = document.getElementById('sched-book').value.trim();
   const date = document.getElementById('sched-date').value;
   if(!book || !date) { alert('책 제목과 날짜를 입력해주세요'); return; }
   const time = document.getElementById('sched-time').value;
   const place = document.getElementById('sched-place').value.trim();
-  if (editingScheduleId != null) {
-    const s = state.schedules.find(x => x.id === editingScheduleId);
-    if (s) {
-      s.book = book;
-      s.date = date;
-      s.time = time;
-      s.place = place;
+  try {
+    if (editingScheduleId != null) {
+      await updateDoc(doc(db, COL_SCHEDULES, editingScheduleId), {
+        book, date, time, place,
+      });
+    } else {
+      await addDoc(collection(db, COL_SCHEDULES), {
+        book, date, time, place,
+        createdAt: serverTimestamp(),
+      });
     }
-  } else {
-    state.schedules.push({ id:getNextId(), book, date, time, place });
+  } catch (e) {
+    console.error(e);
+    alert('저장에 실패했습니다.');
+    return;
   }
   resetScheduleForm();
   closeAllModals();
-  persistData();
-  render();
   showPage('schedule');
 }
+
+// ===== 전역 (인라인 onclick과 호환) =====
+Object.assign(window, {
+  showPage,
+  openAddModal,
+  openModal,
+  openNewBookModal,
+  openNewReviewModal,
+  openNewScheduleModal,
+  closeAllModals,
+  openBookEdit,
+  deleteBook,
+  openReviewEdit,
+  deleteReview,
+  openScheduleEdit,
+  deleteSchedule,
+  selectEmoji,
+  selectColor,
+  selectStar,
+  saveBook,
+  saveReview,
+  saveSchedule,
+});
 
 // ===== INIT =====
 render();
